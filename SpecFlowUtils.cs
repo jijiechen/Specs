@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml;
@@ -13,7 +14,7 @@ namespace generate_to_assembly
     class SpecFlowUtils
     {
         
-        public static SourceAssemblyProbe ProbeProjectAssemblyName(LoadedAssembly[] assemblies, string temporaryPath)
+        public static SourceAssemblyProbe ProbeProjectAssemblyName(IList<LoadedAssembly> assemblies, string temporaryPath)
         {
             var configuredAssembly = assemblies.FirstOrDefault(HasSpecFlowConfigured);
             if (configuredAssembly != null)
@@ -49,14 +50,13 @@ namespace generate_to_assembly
         public static SpecFlowProject ReadSpecFlowProject(string projectPath, SourceAssemblyProbe sourceAssemblyProbe, string defaultNameSpace = null)
         {
             var specFlowProject = new SpecFlowProject();
-            var projectAssemblyName = sourceAssemblyProbe.AssemblyName;
 
             specFlowProject.ProjectSettings.ProjectFolder = projectPath;            
-            specFlowProject.ProjectSettings.ProjectName = projectAssemblyName;
+            specFlowProject.ProjectSettings.ProjectName = sourceAssemblyProbe.AssemblyName;
 
             var projectSettings = specFlowProject.ProjectSettings;
-            projectSettings.AssemblyName = projectAssemblyName;
-            projectSettings.DefaultNamespace = defaultNameSpace ?? projectAssemblyName;
+            projectSettings.AssemblyName = sourceAssemblyProbe.AssemblyName;
+            projectSettings.DefaultNamespace = defaultNameSpace ?? sourceAssemblyProbe.AssemblyName;
 
             var featureFiles = Directory
                 .GetFiles(projectPath, "*.feature", SearchOption.AllDirectories)

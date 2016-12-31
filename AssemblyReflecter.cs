@@ -1,4 +1,5 @@
 ﻿using Mono.Cecil;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -7,7 +8,7 @@ namespace generate_to_assembly
     class AssemblyReflecter
     {
 
-        public static LoadedAssembly[] ProbeReferenceAssemblies(string referencePath)
+        public static List<LoadedAssembly> ProbeReferenceAssemblies(string referencePath)
         {
             var exes = Directory.GetFiles(referencePath, "*.exe", SearchOption.TopDirectoryOnly);
             var dlls = Directory.GetFiles(referencePath, "*.dll", SearchOption.TopDirectoryOnly);
@@ -16,7 +17,7 @@ namespace generate_to_assembly
                 .Where(f => !f.EndsWith(".features.dll"))
                 .Select(ReadAssembly)
                 .Where(assembly => assembly.Definition != null)
-                .ToArray();
+                .ToList();
         }
 
         static LoadedAssembly ReadAssembly(string assemblyPath)
@@ -36,7 +37,7 @@ namespace generate_to_assembly
             return assembly;
         }
 
-        public static string[] GetStepAssemblyNames(LoadedAssembly[] referenceAssemblies, string basePath)
+        public static string[] GetStepAssemblyNames(IList<LoadedAssembly> referenceAssemblies, string basePath)
         {
             return referenceAssemblies
                     .Where(IsStepAssembly)
@@ -47,6 +48,11 @@ namespace generate_to_assembly
 
         static bool IsStepAssembly(LoadedAssembly assembly)
         {
+            if(assembly.Definition == null)
+            {
+                return false;
+            }
+
             try
             {
                 return assembly.Definition.Modules

@@ -4,34 +4,55 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 
 namespace generate_to_assembly
 {
     class AssemblyGenerator
     {
+        const string SpecRunAssemblyName = "TechTalk.SpecRun.dll";
+
         public static void Generate(AssemblyGeneratorContext context, TextWriter errorOutput)
         {
             var referenceAssemblies = AssemblyReflecter.ProbeReferenceAssemblies(context.TemporaryPath);
             context.SourceAssembly = SpecFlowUtils.ProbeProjectAssemblyName(referenceAssemblies, context.TemporaryPath);
+            var addedSpecRun = AddSpecRunIfNecessary(context, referenceAssemblies);
 
             var specFlowProject = SpecFlowUtils.ReadSpecFlowProject(context.TemporaryPath, context.SourceAssembly, context.DefaultNamespace);
             var generator = SpecFlowUtils.SetupGenerator(context.VerboseOutput, errorOutput);
             generator.ProcessProject(specFlowProject, false /* forceGeneration */);
-            
+
             GenerateFeatureAssembly(
-                context.TemporaryPath, 
-                referenceAssemblies.Select(assembly => assembly.FullPath).ToArray(), 
-                context.OutputPath, 
+                context.TemporaryPath,
+                referenceAssemblies.Select(assembly => assembly.FullPath).ToArray(),
+                context.OutputPath,
                 context.FeatureAssemblyName);
 
-            CopyGeneratedAssembly(context);
+            CopyGeneratedAssemblies(context, addedSpecRun);
             GenerateConfiguration(
                 Path.Combine(context.SourcePath, context.FeatureDllName + ".config"),
                 AssemblyReflecter.GetStepAssemblyNames(referenceAssemblies, context.TemporaryPath));
 
             DeleteRedundantFiles(context.TemporaryPath);
         }
-        
+
+        static bool AddSpecRunIfNecessary(AssemblyGeneratorContext context, IList<LoadedAssembly> referenceAssemblies)
+        {
+            if (context.SourceAssembly.HasSpecFlowConfigured)
+            {
+                return false;
+            }
+
+            var specRunPath = Path.Combine(context.TemporaryPath, SpecRunAssemblyName);
+            var addSpecRun = !File.Exists(specRunPath);
+            if (addSpecRun)
+            {
+                File.Copy(Path.Combine(DirectoryUtils.GetContainingDirectory(Assembly.GetExecutingAssembly().Location), SpecRunAssemblyName), specRunPath, true);
+                referenceAssemblies.Add(new LoadedAssembly { FullPath = specRunPath, Definition = null });
+            }
+            return addSpecRun;
+        }
+
         static void GenerateFeatureAssembly(string featureCodeFilePath, string[] referenceAssemblies, string outputDirectory, string assemblyName)
         {
             var featureCodeFiles = Directory.GetFiles(featureCodeFilePath, "*.feature.cs", SearchOption.AllDirectories);
@@ -77,10 +98,40 @@ namespace generate_to_assembly
             }
         }
         
-        static void CopyGeneratedAssembly(AssemblyGeneratorContext context)
+        static void CopyGeneratedAssemblies(AssemblyGeneratorContext context, bool copySpecRun)
         {
             File.Copy(Path.Combine(context.OutputPath, context.FeatureDllName), Path.Combine(context.SourcePath, context.FeatureDllName), true);
             File.Copy(Path.Combine(context.OutputPath, context.FeatureAssemblyName + ".pdb"), Path.Combine(context.SourcePath, context.FeatureAssemblyName + ".pdb"), true);
+
+            if (copySpecRun)
+            {
+                WriteSpecRunToSourcePath(context);
+            }
+        }
+
+        private static void WriteSpecRunToSourcePath(AssemblyGeneratorContext context)
+        {
+            const string template = @"<?xml version=""1.0"" encoding=""utf-8""?>
+<TestProfile xmlns=""http://www.specflow.org/schemas/plus/TestProfile/1.5"">
+  <Settings projectName=""{0}"" projectId=""{{{1}}}"" />
+  <Execution stopAfterFailures=""3"" testThreadCount=""1"" testSchedulingMode=""Sequential"" />
+  <TestAssemblyPaths>
+    <TestAssemblyPath>{2}</TestAssemblyPath>
+  </TestAssemblyPaths>
+  <DeploymentTransformation>
+    <Steps>
+    </Steps>
+  </DeploymentTransformation>
+</TestProfile>";
+
+            File.Copy(Path.Combine(context.TemporaryPath, SpecRunAssemblyName), Path.Combine(context.SourcePath, SpecRunAssemblyName), true);
+
+            var srProfilePath = Path.Combine(context.SourcePath, "Default.srprofile");
+            if (!File.Exists(srProfilePath))
+            {
+                var srProfile = string.Format(template, context.SourceAssembly.AssemblyName, Guid.NewGuid().ToString(), context.FeatureDllName);
+                File.WriteAllText(srProfilePath, srProfile, System.Text.Encoding.UTF8);
+            }
         }
 
         static void GenerateConfiguration(string fileName, string[] assemblyNames)
