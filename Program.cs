@@ -32,34 +32,36 @@ namespace generate_to_assembly
             dll = Path.IsPathRooted(dll) ? dll : Path.Combine(Environment.CurrentDirectory, dll);
 
             var sourceDirectory = Path.GetDirectoryName(dll);
+            var sourceAssemblyName = Path.GetFileNameWithoutExtension(dll);
+            var sourceDllName = Path.GetFileName(dll);            
+
             var tempPath = Path.Combine(Path.GetTempPath(), "SpecFlowFeatureAssemblyGenerator", Guid.NewGuid().ToString("N").Substring(0, 12));
             Directory.CreateDirectory(tempPath);
             CopyDirectory(sourceDirectory, tempPath);
 
-
-            var dllName = Path.GetFileName(dll);
-            var specFlowProject = ReadSpecFlowProject(Path.Combine(tempPath, dllName), defaultNamespace);
-
-
+            var specFlowProject = ReadSpecFlowProject(Path.Combine(tempPath, sourceDllName), defaultNamespace);
             var generator = SetupBatchGenerator(verboseOutput);
             generator.ProcessProject(specFlowProject, false /* forceGeneration */);
             
 
-
             try
             {
-                var outputDirectory = Path.Combine(tempPath, "output");
-                var fileName = Path.GetFileNameWithoutExtension(dll) + ".features";
-                Directory.CreateDirectory(outputDirectory);
-                
+                Console.WriteLine("Generating source code using temporary path {0}", tempPath);
 
-                GenerateFeatureAssembly(tempPath, outputDirectory, fileName);
-                File.Copy(Path.Combine(outputDirectory, fileName + ".dll"), Path.Combine(sourceDirectory, fileName + ".dll"), true);
-                File.Copy(Path.Combine(outputDirectory, fileName + ".pdb"), Path.Combine(sourceDirectory, fileName + ".pdb"), true);
+                var outputDirectory = Path.Combine(tempPath, "output");
+                var featureAssemblyName = sourceAssemblyName + ".features";
+                var featureDllName = featureAssemblyName + ".dll";
+                Directory.CreateDirectory(outputDirectory);                
+
+                GenerateFeatureAssembly(tempPath, outputDirectory, featureAssemblyName);
+                GenerateConfiguration(Path.Combine(sourceDirectory, featureDllName + ".config"), new[] { sourceAssemblyName });                
+                File.Copy(Path.Combine(outputDirectory, featureDllName), Path.Combine(sourceDirectory, featureDllName), true);
+                File.Copy(Path.Combine(outputDirectory, featureAssemblyName + ".pdb"), Path.Combine(sourceDirectory, featureAssemblyName + ".pdb"), true);
+                DeleteRedundantFiles(tempPath);
 
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Successfully generated assembly with temporary code path " + tempPath);
-                Console.ForegroundColor = defaultColor;
+                Console.WriteLine("Successfully generated assembly {0}", featureDllName);
+                Environment.Exit(0);
             }
             catch(Exception ex)
             {
@@ -70,9 +72,12 @@ namespace generate_to_assembly
                 Console.Error.WriteLine(ex.Message);
                 Console.Error.WriteLine(ex.StackTrace);
                 Environment.Exit(-1);
+                return;
             }
-
-            DeleteRedundantFiles(tempPath);
+            finally
+            {
+                Console.ForegroundColor = defaultColor;
+            }
         }
 
 
@@ -148,7 +153,11 @@ namespace generate_to_assembly
         static void batchGenerator_OnError(FeatureFileInput featureFileInput, TestGeneratorResult testGeneratorResult)
         {
             Console.Error.WriteLine("Error generating for file {0}", featureFileInput.ProjectRelativePath);
-            Console.Error.WriteLine(string.Join(Environment.NewLine, testGeneratorResult.Errors.Select(e => string.Format("Line {0}:{1} - {2}", e.Line, e.LinePosition, e.Message))));
+            Console.Error.WriteLine(
+                    testGeneratorResult.Errors
+                    .Select(e => string.Format("Line {0}:{1} - {2}", e.Line, e.LinePosition, e.Message))
+                    .JoinToString(Environment.NewLine)
+                );
         }
 
         static void GenerateFeatureAssembly(string referenceDirectory, string outputDirectory, string assemblyName)
@@ -220,14 +229,35 @@ namespace generate_to_assembly
 
         static void DeleteRedundantFiles(string projectPath)
         {
-            var featureFiles = new HashSet<string>(Directory.GetFiles(projectPath, "*.feature", SearchOption.AllDirectories));
-            var featureCodeFiles = new HashSet<string>(Directory.GetFiles(projectPath, "*.feature.cs", SearchOption.AllDirectories));
+            var reservedExtensions = new List<string>(new[] { "*.feature", "*.feature.cs" });
+            Func<string, bool> shouldReserve = file => reservedExtensions.Any(extension => file.EndsWith(extension, StringComparison.InvariantCultureIgnoreCase));
 
             Directory.GetFiles(projectPath, "*.*", SearchOption.AllDirectories)
-                .Where(file => !featureFiles.Contains(file))
-                .Where(file => !featureCodeFiles.Contains(file))
+                .WhereNot(shouldReserve)
                 .ToList()
                 .ForEach(File.Delete);
+        }
+
+        static void GenerateConfiguration(string fileName, string[] assemblyNames)
+        {
+            const string configurationTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
+<configuration>
+  <configSections>
+    <section name=""specFlow"" type=""TechTalk.SpecFlow.Configuration.ConfigurationSectionHandler, TechTalk.SpecFlow"" />
+  </configSections>
+  <specFlow>
+    <stepAssemblies>
+      {0}
+    </stepAssemblies>
+  </specFlow>
+</configuration>";
+            const string assemblyTemplate = @"<stepAssembly assembly=""{0}"" />";
+
+            var assembliesSection = assemblyNames
+                                    .Select(n => string.Format(assemblyTemplate, n))
+                                    .JoinToString(Environment.NewLine);
+            var configuration = string.Format(configurationTemplate, assembliesSection);
+            File.WriteAllText(fileName, configuration, System.Text.Encoding.UTF8);
         }
     }
 
@@ -239,6 +269,19 @@ namespace generate_to_assembly
         public static string Get(this string[] args, int index)
         {
             return (args == null || (args.Length < index + 1)) ? null : args[index];
+        }
+    }
+
+    static class EnumerableExtensions
+    {
+        public static string JoinToString<T>(this IEnumerable<T> list, string separator)
+        {
+            return string.Join<T>(separator, list);
+        }
+
+        public static IEnumerable<T> WhereNot<T>(this IEnumerable<T> list, Func<T, bool> predicate)
+        {
+            return list.Where(item => !predicate(item));
         }
     }
 }
