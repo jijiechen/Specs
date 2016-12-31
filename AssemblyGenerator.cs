@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Mono.Cecil;
 
 namespace generate_to_assembly
 {
@@ -16,16 +17,29 @@ namespace generate_to_assembly
             var generator = SpecFlowUtils.SetupGenerator(context.VerboseOutput, Console.Error);
             generator.ProcessProject(specFlowProject, false /* forceGeneration */);
 
+            var referenceAssemblies = ProbeReferenceAssemblies(context.TemporaryPath);
+            GenerateFeatureAssembly(
+                context.TemporaryPath, 
+                referenceAssemblies.Select(assembly => assembly.FullName).ToArray(), 
+                context.OutputPath, 
+                context.FeatureAssemblyName);
 
-            GenerateFeatureAssembly(context.TemporaryPath, context.OutputPath, context.FeatureAssemblyName);
             CopyGeneratedAssembly(context);
-            GenerateConfiguration(Path.Combine(context.SourcePath, context.FeatureDllName + ".config"), new[] { context.SourceAssemblyName });
+            GenerateConfiguration(
+                Path.Combine(context.SourcePath, context.FeatureDllName + ".config"),
+                referenceAssemblies.Where(IsStepAssembly).Select(assembly => assembly.FullName).ToArray());
 
             DeleteRedundantFiles(context.TemporaryPath);
         }
         
-        static void GenerateFeatureAssembly(string referenceDirectory, string outputDirectory, string assemblyName)
+        static void GenerateFeatureAssembly(string featureCodeFilePath, string[] referenceAssemblies, string outputDirectory, string assemblyName)
         {
+            var featureCodeFiles = Directory.GetFiles(featureCodeFilePath, "*.feature.cs", SearchOption.AllDirectories);
+            if (featureCodeFiles.Length < 1)
+            {
+                throw new FileNotFoundException("No feature code file detected.", "*.feature.cs");
+            }
+
             var parameters = new CompilerParameters()
             {
                 GenerateInMemory = false,
@@ -34,22 +48,16 @@ namespace generate_to_assembly
                 OutputAssembly = Path.Combine(outputDirectory, assemblyName + ".dll")
             };
 
-            var exes = Directory.GetFiles(referenceDirectory, "*.exe", SearchOption.TopDirectoryOnly);
-            var dlls = Directory.GetFiles(referenceDirectory, "*.dll", SearchOption.TopDirectoryOnly);
-            var assemblies = exes.Concat(dlls).Where(IsAssembly).Where(f => !f.EndsWith(".features.dll")).ToArray();
-
             parameters.ReferencedAssemblies.Add("System.dll");
             parameters.ReferencedAssemblies.Add("Microsoft.CSharp.dll");
             parameters.ReferencedAssemblies.Add("System.Core.dll");
-            parameters.ReferencedAssemblies.AddRange(assemblies);
+            parameters.ReferencedAssemblies.AddRange(referenceAssemblies);
 
-            var featureCodeFiles = Directory.GetFiles(referenceDirectory, "*.feature.cs", SearchOption.AllDirectories);
             var provider = new CSharpCodeProvider();
-
             var results = provider.CompileAssemblyFromFile(parameters, featureCodeFiles);
             if (results.Errors.Count > 0)
             {
-                var messages = new List<string>();
+                var messages = new List<string>() { "Compliation error:" };
                 foreach (CompilerError err in results.Errors)
                 {
                     if (!err.IsWarning)
@@ -65,16 +73,43 @@ namespace generate_to_assembly
                     messages.Add(output);
                 }
 
-                throw new Exception("Compliation error:" + Environment.NewLine + String.Join(Environment.NewLine, messages));
+                throw new Exception(messages.JoinToString(Environment.NewLine));
             }
         }
 
-        static bool IsAssembly(string assemblyPath)
+        static AssemblyDefinition[] ProbeReferenceAssemblies(string referencePath)
+        {
+            var exes = Directory.GetFiles(referencePath, "*.exe", SearchOption.TopDirectoryOnly);
+            var dlls = Directory.GetFiles(referencePath, "*.dll", SearchOption.TopDirectoryOnly);
+
+            return exes.Concat(dlls)
+                .Where(f => !f.EndsWith(".features.dll"))
+                .Select(ReadAssembly)
+                .Where(assembly => assembly != null)
+                .ToArray();
+        }
+
+        static AssemblyDefinition ReadAssembly(string assemblyPath)
         {
             try
             {
-                AssemblyName.GetAssemblyName(assemblyPath);
-                return true;
+                return AssemblyDefinition.ReadAssembly(assemblyPath, new ReaderParameters { ReadSymbols = false });
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        static bool IsStepAssembly(AssemblyDefinition assembly)
+        {
+            try
+            {
+                return assembly.Modules
+                    .SelectMany(m => m.Types)
+                    .Where(t => t.IsPublic && !t.IsAbstract && !t.IsInterface)
+                    .Where(t => t.CustomAttributes.Any(attr => attr.AttributeType.FullName == "TechTalk.SpecFlow.BindingAttribute"))
+                    .Any();
             }
             catch
             {
