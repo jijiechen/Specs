@@ -4,8 +4,6 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using Mono.Cecil;
 
 namespace generate_to_assembly
 {
@@ -17,17 +15,17 @@ namespace generate_to_assembly
             var generator = SpecFlowUtils.SetupGenerator(context.VerboseOutput, Console.Error);
             generator.ProcessProject(specFlowProject, false /* forceGeneration */);
 
-            var referenceAssemblies = ProbeReferenceAssemblies(context.TemporaryPath);
+            var referenceAssemblies = AssemblyReflecter.ProbeReferenceAssemblies(context.TemporaryPath);
             GenerateFeatureAssembly(
                 context.TemporaryPath, 
-                referenceAssemblies.Select(assembly => assembly.FullName).ToArray(), 
+                referenceAssemblies.Select(assembly => assembly.FullPath).ToArray(), 
                 context.OutputPath, 
                 context.FeatureAssemblyName);
 
             CopyGeneratedAssembly(context);
             GenerateConfiguration(
                 Path.Combine(context.SourcePath, context.FeatureDllName + ".config"),
-                referenceAssemblies.Where(IsStepAssembly).Select(assembly => assembly.FullName).ToArray());
+                AssemblyReflecter.GetStepAssemblyNames(referenceAssemblies, context.TemporaryPath));
 
             DeleteRedundantFiles(context.TemporaryPath);
         }
@@ -76,47 +74,7 @@ namespace generate_to_assembly
                 throw new Exception(messages.JoinToString(Environment.NewLine));
             }
         }
-
-        static AssemblyDefinition[] ProbeReferenceAssemblies(string referencePath)
-        {
-            var exes = Directory.GetFiles(referencePath, "*.exe", SearchOption.TopDirectoryOnly);
-            var dlls = Directory.GetFiles(referencePath, "*.dll", SearchOption.TopDirectoryOnly);
-
-            return exes.Concat(dlls)
-                .Where(f => !f.EndsWith(".features.dll"))
-                .Select(ReadAssembly)
-                .Where(assembly => assembly != null)
-                .ToArray();
-        }
-
-        static AssemblyDefinition ReadAssembly(string assemblyPath)
-        {
-            try
-            {
-                return AssemblyDefinition.ReadAssembly(assemblyPath, new ReaderParameters { ReadSymbols = false });
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        static bool IsStepAssembly(AssemblyDefinition assembly)
-        {
-            try
-            {
-                return assembly.Modules
-                    .SelectMany(m => m.Types)
-                    .Where(t => t.IsPublic && !t.IsAbstract && !t.IsInterface)
-                    .Where(t => t.CustomAttributes.Any(attr => attr.AttributeType.FullName == "TechTalk.SpecFlow.BindingAttribute"))
-                    .Any();
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
+        
         static void CopyGeneratedAssembly(AssemblyGeneratorContext context)
         {
             File.Copy(Path.Combine(context.OutputPath, context.FeatureDllName), Path.Combine(context.SourcePath, context.FeatureDllName), true);
@@ -132,7 +90,7 @@ namespace generate_to_assembly
   </configSections>
   <specFlow>
     <stepAssemblies>
-      {0}
+{0}
     </stepAssemblies>
   </specFlow>
 </configuration>";

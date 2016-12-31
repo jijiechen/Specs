@@ -71,6 +71,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyGeneratorContext.cs" />
+    <Compile Include="AssemblyReflecter.cs" />
     <Compile Include="DirectoryUtils.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="Program.cs" />
