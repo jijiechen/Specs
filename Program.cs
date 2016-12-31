@@ -1,65 +1,26 @@
-﻿using System;
-using System.IO;
+﻿using Microsoft.Extensions.CommandLineUtils;
 
 
 namespace generate_to_assembly
 {
     class Program
     {
-        
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
-            var defaultColor = Console.ForegroundColor;
-            var exitCode = 0;
-            var context = InitContextFromCommandlineArguments(args);
-
-            try
+            var app = new CommandLineApplication();
+            app.Name = "specs";
+            app.FullName = "Utility for generating and running assembly for SpecFlow feature files";
+            app.HelpOption("-?|-h|--help");
+            app.OnExecute(() =>
             {
-                Console.WriteLine("Generating source code using temporary path {0}", context.TemporaryPath);
-                Directory.CreateDirectory(context.TemporaryPath);
-                Directory.CreateDirectory(context.OutputPath);
-                DirectoryUtils.CopyDirectory(context.SourcePath, context.TemporaryPath);
+                app.ShowHelp();
+                return 2;
+            });
+
+            GenerateAssemblyCommand.Register(app);
 
 
-                AssemblyGenerator.Generate(context, Console.Error);
-
-                
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Successfully generated assembly {0}", context.FeatureDllName);
-            }
-            catch (Exception ex)
-            {
-                Console.ForegroundColor = ConsoleColor.DarkRed;
-                Console.Error.WriteLine("Could not generate assembly for the project.");
-
-                Console.ForegroundColor = defaultColor;
-                Console.Error.WriteLine(ex.Message);
-                Console.Error.WriteLine(ex.StackTrace);
-                exitCode = -1;
-            }
-            finally
-            {
-                Console.ForegroundColor = defaultColor;
-            }
-
-            Environment.Exit(exitCode);
-        }
-
-        static AssemblyGeneratorContext InitContextFromCommandlineArguments(string[] args)
-        {
-            var basePath = args.Get(0);
-            basePath = Path.IsPathRooted(basePath) ? basePath : Environment.CurrentDirectory;
-
-            // System.Diagnostics.Debugger.Launch();
-
-            var context = new AssemblyGeneratorContext
-            {
-                VerboseOutput = true,
-                DefaultNamespace = args.Get(1),
-                SourcePath = basePath,
-                TemporaryPath = Path.Combine(Path.GetTempPath(), "SpecFlowFeatureAssemblyGenerator", "f" + Guid.NewGuid().ToString("N").Substring(0, 9))
-            };
-            return context;
+            return app.Execute(args);
         }
     }
 }

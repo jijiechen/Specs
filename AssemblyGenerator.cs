@@ -98,18 +98,15 @@ namespace generate_to_assembly
             }
         }
         
-        static void CopyGeneratedAssemblies(AssemblyGeneratorContext context, bool copySpecRun)
+        static void CopyGeneratedAssemblies(AssemblyGeneratorContext context, bool addedSpecRun)
         {
             File.Copy(Path.Combine(context.OutputPath, context.FeatureDllName), Path.Combine(context.SourcePath, context.FeatureDllName), true);
             File.Copy(Path.Combine(context.OutputPath, context.FeatureAssemblyName + ".pdb"), Path.Combine(context.SourcePath, context.FeatureAssemblyName + ".pdb"), true);
 
-            if (copySpecRun)
-            {
-                WriteSpecRunToSourcePath(context);
-            }
+            WriteSpecRunToSourcePath(context, addedSpecRun);
         }
 
-        private static void WriteSpecRunToSourcePath(AssemblyGeneratorContext context)
+        private static void WriteSpecRunToSourcePath(AssemblyGeneratorContext context, bool addedSpecRun)
         {
             const string template = @"<?xml version=""1.0"" encoding=""utf-8""?>
 <TestProfile xmlns=""http://www.specflow.org/schemas/plus/TestProfile/1.5"">
@@ -124,10 +121,15 @@ namespace generate_to_assembly
   </DeploymentTransformation>
 </TestProfile>";
 
-            File.Copy(Path.Combine(context.TemporaryPath, SpecRunAssemblyName), Path.Combine(context.SourcePath, SpecRunAssemblyName), true);
+            var specRunDll = Path.Combine(context.SourcePath, SpecRunAssemblyName);
+            if (addedSpecRun && !File.Exists(specRunDll))
+            {
+                File.Copy(Path.Combine(context.TemporaryPath, SpecRunAssemblyName), specRunDll, true);
+            }
 
-            var srProfilePath = Path.Combine(context.SourcePath, "Default.srprofile");
-            if (!File.Exists(srProfilePath))
+            var usingSpecRun = File.Exists(specRunDll);
+            var srProfilePath = Path.Combine(context.SourcePath, (context.SpecifiedFeatureAssemblyName ?? context.SourceAssembly.AssemblyName) + ".srprofile");            
+            if (usingSpecRun && !File.Exists(srProfilePath))
             {
                 var srProfile = string.Format(template, context.SourceAssembly.AssemblyName, Guid.NewGuid().ToString(), context.FeatureDllName);
                 File.WriteAllText(srProfilePath, srProfile, System.Text.Encoding.UTF8);

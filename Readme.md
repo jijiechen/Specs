@@ -9,10 +9,10 @@ Besides, it does not create any code file in the solution folder, so that your s
 
 **Usage**
 
-It's a command line tool. It should be run after your main project which contains the step definitions has been compiled. To run it and generate the assembly to contain the fetaures, just restore NuGet packages, compile this project, and copy output into `packages\SpecFlow.2.1.0\tools` directory of your project(choose not to overwrite existing files), and execute following command:  
+It's a command line tool. It should be run after your main project which contains the step definitions has been compiled. To run it and generate the assembly to contain the fetaures, just restore NuGet packages, compile this project, and execute following command:  
 
 ```
-path-to-generate-to-assembly.exe "path-to-directory-containing-step-assemblies" [default-namespace]
+specs.exe generate "path-to-directory-containing-step-assemblies" [--assembly-name name]
 ```
 
 

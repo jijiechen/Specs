@@ -21,11 +21,26 @@
 @GOTO gen
 
 
+
+
+
 :gen
+
+@setlocal ENABLEEXTENSIONS ENABLEDELAYEDEXPANSION
+@set alfanum=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
+
+@SET randname=
+	FOR /L %%b IN (0, 1, 8) DO (
+		SET /A rnd_num=!RANDOM! * 52 / 32768 + 1
+		for /F %%c in ('echo %%alfanum:~!rnd_num!^,1%%') do set randname=!randname!%%c
+	)
 @CD %~dp0
+
+@SET assembly=%1
+@IF "%assembly%" == "" SET assembly=%randname%
 @SET PROJ=%WORKDIR%
 @IF %ISSOURCE% == 1 SET PROJ=%WORKDIR%\bin\Debug
-generate-to-assembly.exe "%PROJ%"
+specs.exe generate "%PROJ%" --assembly-name %assembly% -v
 @IF %ERRORLEVEL% NEQ 0 GOTO end
 
 
@@ -33,9 +48,9 @@ generate-to-assembly.exe "%PROJ%"
 
 @CD %~dp0\SpecRun.Runner
 
-@SET profile=%1
-@IF "%profile%" == "" SET profile=Default
-SpecRun.exe run %profile%.srprofile "/baseFolder:%PROJ%" /log:specrun.log %2 %3 %4 %5
+@SET profile=%2
+@IF "%profile%" == "" SET profile=%assembly%
+SpecRun.exe run %profile%.srprofile "/baseFolder:%PROJ%" /log:specrun.log %3 %4 %5 %6
 @GOTO end
 
 

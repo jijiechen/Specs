@@ -9,11 +9,12 @@ namespace generate_to_assembly
 
         public string SourcePath { get; set; }
         public SourceAssemblyProbe SourceAssembly { get; set; }
+        public string SpecifiedFeatureAssemblyName { get; set; }
 
 
         public string FeatureAssemblyName
         {
-            get { return SourceAssembly.AssemblyName.TryConcat(".features"); }
+            get { return SpecifiedFeatureAssemblyName.TryConcat(".features") ?? SourceAssembly.AssemblyName.TryConcat(".features"); }
         }
 
         public string FeatureDllName
