@@ -12,5 +12,10 @@ namespace generate_to_assembly
             foreach (string newPath in Directory.GetFiles(sourcePath, "*.*", SearchOption.AllDirectories))
                 File.Copy(newPath, newPath.Replace(sourcePath, destinationPath), true);
         }
+
+        public static string GetContainingDirectory(string filePath)
+        {
+            return new FileInfo(filePath).Directory.FullName;
+        }
     }
 }

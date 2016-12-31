@@ -21,7 +21,7 @@ namespace generate_to_assembly
                 DirectoryUtils.CopyDirectory(context.SourcePath, context.TemporaryPath);
 
 
-                AssemblyGenerator.Generate(context);
+                AssemblyGenerator.Generate(context, Console.Error);
 
                 
                 Console.ForegroundColor = ConsoleColor.Green;
@@ -47,23 +47,17 @@ namespace generate_to_assembly
 
         static AssemblyGeneratorContext InitContextFromCommandlineArguments(string[] args)
         {
-            var defaultNamespace = args.Get(1);
-            var dll = args.Get(0);
-            if (dll == null)
-            {
-                throw new ApplicationException("Please use first parameter to represent assembly path.");
-            }
-            dll = Path.IsPathRooted(dll) ? dll : Path.Combine(Environment.CurrentDirectory, dll);
+            var basePath = args.Get(0);
+            basePath = Path.IsPathRooted(basePath) ? basePath : Environment.CurrentDirectory;
 
             // System.Diagnostics.Debugger.Launch();
 
             var context = new AssemblyGeneratorContext
             {
                 VerboseOutput = true,
-                DefaultNamespace = defaultNamespace,
-                SourcePath = Path.GetDirectoryName(dll),
-                SourceAssemblyName = Path.GetFileNameWithoutExtension(dll),
-                TemporaryPath = Path.Combine(Path.GetTempPath(), "SpecFlowFeatureAssemblyGenerator", Guid.NewGuid().ToString("N").Substring(0, 12))
+                DefaultNamespace = args.Get(1),
+                SourcePath = basePath,
+                TemporaryPath = Path.Combine(Path.GetTempPath(), "SpecFlowFeatureAssemblyGenerator", "f" + Guid.NewGuid().ToString("N").Substring(0, 9))
             };
             return context;
         }

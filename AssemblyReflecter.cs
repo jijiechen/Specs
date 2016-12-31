@@ -40,7 +40,7 @@ namespace generate_to_assembly
         {
             return referenceAssemblies
                     .Where(IsStepAssembly)
-                    .Select(assembly => Path.Combine(Path.GetDirectoryName(assembly.FullPath), Path.GetFileNameWithoutExtension(assembly.FullPath)))
+                    .Select(assembly => Path.Combine(DirectoryUtils.GetContainingDirectory(assembly.FullPath), Path.GetFileNameWithoutExtension(assembly.FullPath)))
                     .Select(path => path.Replace(basePath, string.Empty).TrimStart(Path.DirectorySeparatorChar))
                     .ToArray();
         }
@@ -62,7 +62,7 @@ namespace generate_to_assembly
         }
     }
 
-    struct LoadedAssembly
+    class LoadedAssembly
     {
         public string FullPath { get; set; }
         public AssemblyDefinition Definition { get; set; }

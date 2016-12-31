@@ -2,22 +2,20 @@
 
 namespace generate_to_assembly
 {
-    public class AssemblyGeneratorContext
+    class AssemblyGeneratorContext
     {
         public bool VerboseOutput { get; set; }
         public string DefaultNamespace { get; set; }
 
         public string SourcePath { get; set; }
-        public string SourceAssemblyName { get; set; }
-        public string SourceDllName
-        {
-            get { return SourceAssemblyName.TryConcat(".dll"); }
-        }
+        public SourceAssemblyProbe SourceAssembly { get; set; }
+
 
         public string FeatureAssemblyName
         {
-            get { return SourceAssemblyName.TryConcat(".features"); }
+            get { return SourceAssembly.AssemblyName.TryConcat(".features"); }
         }
+
         public string FeatureDllName
         {
             get { return FeatureAssemblyName.TryConcat(".dll"); }
@@ -29,6 +27,24 @@ namespace generate_to_assembly
         {
             get { return TemporaryPath == null ? null : Path.Combine(TemporaryPath, "output"); }
         }
+    }
+
+
+    class SourceAssemblyProbe
+    {
+        public SourceAssemblyProbe(string assemblyPath, bool hasSpecFlowConfigured)
+        {
+            this.AssemblyPath = assemblyPath;
+            this.AssemblyName = assemblyPath == null ? null : Path.GetFileNameWithoutExtension(assemblyPath);
+
+            this.HasSpecFlowConfigured = hasSpecFlowConfigured;
+        }
+
+        public string AssemblyPath { get; }
+
+        public string AssemblyName { get; }
+
+        public bool HasSpecFlowConfigured { get;}
     }
 
 }

@@ -12,59 +12,106 @@ namespace generate_to_assembly
 {
     class SpecFlowUtils
     {
-        public static SpecFlowProject ReadSpecFlowProject(string assemblyFullPath, string defaultNameSpace = null)
+        
+        public static SourceAssemblyProbe ProbeProjectAssemblyName(LoadedAssembly[] assemblies, string temporaryPath)
         {
-            var assemblyName = Path.GetFileNameWithoutExtension(assemblyFullPath);
-            var directoryName = Path.GetDirectoryName(assemblyFullPath);
-
-            var specFlowProject = new SpecFlowProject();
-            specFlowProject.ProjectSettings.ProjectFolder = directoryName;
-            specFlowProject.ProjectSettings.ProjectName = assemblyName;
-
-            var projectSettings = specFlowProject.ProjectSettings;
-            projectSettings.AssemblyName = assemblyName;
-            projectSettings.DefaultNamespace = defaultNameSpace ?? assemblyName;
-
-            var featureFiles = Directory
-                .GetFiles(directoryName, "*.feature", SearchOption.AllDirectories)
-                .Select(file => new FeatureFileInput(file)
-                {
-                    CustomNamespace =
-                    projectSettings.DefaultNamespace +
-                    Path.GetDirectoryName(file)
-                    .Replace(directoryName, string.Empty)
-                    .Replace(Path.DirectorySeparatorChar, '.')
-                });
-            specFlowProject.FeatureFiles.AddRange(featureFiles);
-
-            var configPath = Path.Combine(directoryName, Path.GetFileName(assemblyFullPath) + ".config");
-            if (File.Exists(configPath))
+            var configuredAssembly = assemblies.FirstOrDefault(HasSpecFlowConfigured);
+            if (configuredAssembly != null)
             {
-                var configurationHolderFromFileContent = GetConfigurationHolderFromFileContent(File.ReadAllText(configPath));
-                specFlowProject.ProjectSettings.ConfigurationHolder = configurationHolderFromFileContent;
-                specFlowProject.Configuration = new GeneratorConfigurationProvider().LoadConfiguration(configurationHolderFromFileContent);
+                return new SourceAssemblyProbe(configuredAssembly.FullPath, hasSpecFlowConfigured: true);
             }
-            return specFlowProject;
+
+            return new SourceAssemblyProbe(Path.Combine(temporaryPath, new DirectoryInfo(temporaryPath).Name + ".dll"), hasSpecFlowConfigured: false);
         }
 
-        static SpecFlowConfigurationHolder GetConfigurationHolderFromFileContent(string configFileContent)
+        static bool HasSpecFlowConfigured(LoadedAssembly assembly)
         {
-            SpecFlowConfigurationHolder result;
+            var configuration = assembly.FullPath + ".config";
+            if (!File.Exists(configuration))
+            {
+                return false;
+            }
+
+
             try
             {
                 var configurationDocument = new XmlDocument();
-                configurationDocument.LoadXml(configFileContent);
-                result = new SpecFlowConfigurationHolder(configurationDocument.SelectSingleNode("/configuration/specFlow"));
+                configurationDocument.LoadXml(File.ReadAllText(configuration));
+
+                return null != configurationDocument.SelectSingleNode("/configuration/specFlow");
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static SpecFlowProject ReadSpecFlowProject(string projectPath, SourceAssemblyProbe sourceAssemblyProbe, string defaultNameSpace = null)
+        {
+            var specFlowProject = new SpecFlowProject();
+            var projectAssemblyName = sourceAssemblyProbe.AssemblyName;
+
+            specFlowProject.ProjectSettings.ProjectFolder = projectPath;            
+            specFlowProject.ProjectSettings.ProjectName = projectAssemblyName;
+
+            var projectSettings = specFlowProject.ProjectSettings;
+            projectSettings.AssemblyName = projectAssemblyName;
+            projectSettings.DefaultNamespace = defaultNameSpace ?? projectAssemblyName;
+
+            var featureFiles = Directory
+                .GetFiles(projectPath, "*.feature", SearchOption.AllDirectories)
+                .Select(file => new FeatureFileInput(file)
+                {
+                    CustomNamespace = projectSettings.DefaultNamespace +
+                                          DirectoryUtils.GetContainingDirectory(file)
+                                            .Replace(projectPath, string.Empty)
+                                            .Replace(Path.DirectorySeparatorChar, '.')
+                });
+            specFlowProject.FeatureFiles.AddRange(featureFiles);
+
+            Configure(specFlowProject, sourceAssemblyProbe);
+            return specFlowProject;
+        }
+
+        static void Configure(SpecFlowProject specFlowProject, SourceAssemblyProbe sourceAssemblyProbe)
+        {
+            const string defaultConfiguration = @"<?xml version=""1.0"" encoding=""utf-8""?>
+<configuration>
+  <configSections>
+    <section name=""specFlow"" type=""TechTalk.SpecFlow.Configuration.ConfigurationSectionHandler, TechTalk.SpecFlow"" />
+  </configSections>
+  <specFlow>
+    <unitTestProvider name=""SpecRun"" />
+    <plugins>    
+      <add name=""SpecRun"" />
+    </plugins>
+</specFlow>
+</configuration>";
+
+            var configurationContent = sourceAssemblyProbe.HasSpecFlowConfigured
+                                        ? File.ReadAllText(sourceAssemblyProbe.AssemblyPath + ".config")
+                                        : defaultConfiguration;
+
+            var configurationHolderFromFileContent = GetConfigurationHolderFromContent(configurationContent);
+            specFlowProject.ProjectSettings.ConfigurationHolder = configurationHolderFromFileContent;
+            specFlowProject.Configuration = new GeneratorConfigurationProvider().LoadConfiguration(configurationHolderFromFileContent);
+        }
+
+        static SpecFlowConfigurationHolder GetConfigurationHolderFromContent(string configurationContent)
+        {
+            try
+            {
+                var configurationDocument = new XmlDocument();
+                configurationDocument.LoadXml(configurationContent);
+                return new SpecFlowConfigurationHolder(configurationDocument.SelectSingleNode("/configuration/specFlow"));
             }
             catch (Exception)
             {
-                result = new SpecFlowConfigurationHolder();
+                return null;
             }
-            return result;
         }
-
-
-
+        
+        
         public static BatchGenerator SetupGenerator(bool verboseOutput, TextWriter errorOutput)
         {
             ITraceListener tracer;
@@ -96,5 +143,6 @@ namespace generate_to_assembly
                     );
             });
         }
+
     }
 }

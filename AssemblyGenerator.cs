@@ -9,13 +9,15 @@ namespace generate_to_assembly
 {
     class AssemblyGenerator
     {
-        public static void Generate(AssemblyGeneratorContext context)
+        public static void Generate(AssemblyGeneratorContext context, TextWriter errorOutput)
         {
-            var specFlowProject = SpecFlowUtils.ReadSpecFlowProject(Path.Combine(context.TemporaryPath, context.SourceDllName), context.DefaultNamespace);
-            var generator = SpecFlowUtils.SetupGenerator(context.VerboseOutput, Console.Error);
-            generator.ProcessProject(specFlowProject, false /* forceGeneration */);
-
             var referenceAssemblies = AssemblyReflecter.ProbeReferenceAssemblies(context.TemporaryPath);
+            context.SourceAssembly = SpecFlowUtils.ProbeProjectAssemblyName(referenceAssemblies, context.TemporaryPath);
+
+            var specFlowProject = SpecFlowUtils.ReadSpecFlowProject(context.TemporaryPath, context.SourceAssembly, context.DefaultNamespace);
+            var generator = SpecFlowUtils.SetupGenerator(context.VerboseOutput, errorOutput);
+            generator.ProcessProject(specFlowProject, false /* forceGeneration */);
+            
             GenerateFeatureAssembly(
                 context.TemporaryPath, 
                 referenceAssemblies.Select(assembly => assembly.FullPath).ToArray(), 
@@ -113,5 +115,6 @@ namespace generate_to_assembly
                 .ToList()
                 .ForEach(File.Delete);
         }
+
     }
 }
