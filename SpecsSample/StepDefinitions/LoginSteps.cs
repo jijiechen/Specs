@@ -26,10 +26,10 @@ namespace SpecsSample.StepDefinitions
         }
 
 
-        [When("I go to baidu")]
-        public void GotoBaidu()
+        [When("I go to bing")]
+        public void GotoBing()
         {
-            driver.Navigate().GoToUrl("https://www.baidu.com/");
+            driver.Navigate().GoToUrl("https://www.bing.com/");
         }
 
         [Then("I should see a search bar")]
@@ -38,7 +38,7 @@ namespace SpecsSample.StepDefinitions
             var page = new WebPage();
             PageFactory.InitElements(driver, page);
 
-            var input = page.Document.FindElement(By.Id("kw"));
+            var input = page.Document.FindElement(By.Id("sb_form_q"));
             Console.WriteLine("Found input: {0}", input != null);
         }
 
