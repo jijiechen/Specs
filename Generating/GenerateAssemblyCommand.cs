@@ -1,9 +1,8 @@
 ﻿using Microsoft.Extensions.CommandLineUtils;
 using System;
 using System.IO;
-using System.Linq;
 
-namespace generate_to_assembly
+namespace SpecsApp.Generating
 {
     class GenerateAssemblyCommand
     {

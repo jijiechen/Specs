@@ -1,6 +1,6 @@
 ﻿using System.IO;
 
-namespace generate_to_assembly
+namespace SpecsApp.Generating
 {
     class AssemblyGeneratorContext
     {

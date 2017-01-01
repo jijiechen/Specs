@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace generate_to_assembly
+namespace SpecsApp
 {
     static class StringExtensions
     {

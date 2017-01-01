@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
-namespace generate_to_assembly
+namespace SpecsApp.Generating
 {
     class AssemblyGenerator
     {

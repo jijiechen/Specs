@@ -1,6 +1,6 @@
 ﻿using System.IO;
 
-namespace generate_to_assembly
+namespace SpecsApp
 {
     class DirectoryUtils
     {

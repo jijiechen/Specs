@@ -9,7 +9,7 @@ using TechTalk.SpecFlow.Generator.Interfaces;
 using TechTalk.SpecFlow.Generator.Project;
 using TechTalk.SpecFlow.Tracing;
 
-namespace generate_to_assembly
+namespace SpecsApp.Generating
 {
     class SpecFlowUtils
     {

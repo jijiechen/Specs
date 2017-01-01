@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.CommandLineUtils;
 
 
-namespace generate_to_assembly
+namespace SpecsApp
 {
     class Program
     {
@@ -17,7 +17,7 @@ namespace generate_to_assembly
                 return 2;
             });
 
-            GenerateAssemblyCommand.Register(app);
+            Generating.GenerateAssemblyCommand.Register(app);
 
 
             return app.Execute(args);
