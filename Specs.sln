@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25123.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpecsApp", "SpecsApp\SpecsApp.csproj", "{AC763155-B28A-4395-AE1C-F94D88B1812D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpecsSample", "SpecsSample\SpecsSample.csproj", "{D22B1735-AB22-4F80-BFB8-B3C011158926}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AC763155-B28A-4395-AE1C-F94D88B1812D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC763155-B28A-4395-AE1C-F94D88B1812D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC763155-B28A-4395-AE1C-F94D88B1812D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC763155-B28A-4395-AE1C-F94D88B1812D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D22B1735-AB22-4F80-BFB8-B3C011158926}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D22B1735-AB22-4F80-BFB8-B3C011158926}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D22B1735-AB22-4F80-BFB8-B3C011158926}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D22B1735-AB22-4F80-BFB8-B3C011158926}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
